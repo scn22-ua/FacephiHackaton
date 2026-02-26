@@ -16,7 +16,28 @@ def eye_aspect_ratio(eye_points):
 
 def cargar_encoding_dni(dni_path):
     img = face_recognition.load_image_file(dni_path)
+
+    # Intentar primero con configuración normal
     encodings = face_recognition.face_encodings(img)
+    if encodings:
+        return encodings[0]
+
+    # Si no detecta, escalar la imagen y aumentar upsampling
+    # Las fotos de DNI suelen tener caras pequeñas
+    scale = 2
+    img_large = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    encodings = face_recognition.face_encodings(img_large, num_jitters=2)
+    if encodings:
+        return encodings[0]
+
+    # Último intento: más upsampling para caras muy pequeñas
+    face_locs = face_recognition.face_locations(img_large, number_of_times_to_upsample=3, model="cnn")
+    if not face_locs:
+        face_locs = face_recognition.face_locations(img_large, number_of_times_to_upsample=3, model="hog")
+    if not face_locs:
+        raise ValueError("No se detectó ningún rostro en la imagen del DNI.")
+
+    encodings = face_recognition.face_encodings(img_large, known_face_locations=face_locs, num_jitters=2)
     if not encodings:
         raise ValueError("No se detectó ningún rostro en la imagen del DNI.")
     return encodings[0]
